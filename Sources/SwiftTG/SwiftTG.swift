@@ -1,24 +1,64 @@
 import Foundation
 
+public protocol BotAPI {
+    func sendRequest(method: String, parameters: [String: Any], completion: @escaping (Result<Data, Error>) -> Void)
+}
+
+public class NetworkBotAPI: BotAPI {
+    let token: String
+    
+    init(token: String) {
+        self.token = token
+    }
+    
+    var baseURL: URL {
+        return URL(string: "https://api.telegram.org/bot\(token)/")!
+    }
+    
+    public func sendRequest(method: String, parameters: [String: Any], completion: @escaping (Result<Data, Error>) -> Void) {
+        var urlComponents = URLComponents(url: baseURL.appendingPathComponent(method), resolvingAgainstBaseURL: false)!
+        
+        urlComponents.queryItems = parameters.map { (key, value) in
+            return URLQueryItem(name: key, value: "\(value)")
+        }
+        
+        var request = URLRequest(url: urlComponents.url!)
+        request.httpMethod = "GET"
+        
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            
+            guard let data = data else {
+                let error = NSError(domain: "BotAPIError", code: 0, userInfo: [NSLocalizedDescriptionKey: "No data received"])
+                completion(.failure(error))
+                return
+            }
+            
+            completion(.success(data))
+        }
+        
+        task.resume()
+    }
+}
+
 public class SwiftTG {
     private let apiId: Int
     private let apiHash: String
     private let phoneOrToken: String
     public var phoneCodeHash: String?
+    private let botAPI: BotAPI
     
-    public init(apiId: Int, apiHash: String, phoneOrToken: String) {
+    public init(apiId: Int, apiHash: String, phoneOrToken: String, botAPI: BotAPI? = nil) {
         self.apiId = apiId
         self.apiHash = apiHash
         self.phoneOrToken = phoneOrToken
+        self.botAPI = botAPI ?? NetworkBotAPI(token: phoneOrToken)
     }
     
     public func registerApp() {
-        let endpoint = "/bot\(phoneOrToken)/createApplication"
-        guard let url = URL(string: "https://api.telegram.org" + endpoint) else {
-            print("Invalid URL")
-            return
-        }
-        
         let parameters: [String: Any] = [
             "api_id": apiId,
             "api_hash": apiHash,
@@ -27,14 +67,18 @@ public class SwiftTG {
             "url": "https://example.com"
         ]
         
-        performRequest(url: url, parameters: parameters, method: .post) { data in
-            if let data = data,
-               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-               let phoneCodeHash = json["phone_code_hash"] as? String {
-                self.phoneCodeHash = phoneCodeHash
-                self.enterCode()
-            } else {
-                print("Failed to register app or parse response")
+        botAPI.sendRequest(method: "createApplication", parameters: parameters) { result in
+            switch result {
+            case .success(let data):
+                if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let phoneCodeHash = json["phone_code_hash"] as? String {
+                    self.phoneCodeHash = phoneCodeHash
+                    self.enterCode()
+                } else {
+                    print("Failed to register app or parse response")
+                }
+            case .failure(let error):
+                print("Error: \(error)")
             }
         }
     }
@@ -54,65 +98,35 @@ public class SwiftTG {
     }
     
     public func confirmCode(code: String, phoneCodeHash: String) {
-        let endpoint = "/bot\(phoneOrToken)/signIn"
-        guard let url = URL(string: "https://api.telegram.org" + endpoint) else {
-            print("Invalid URL")
-            return
-        }
-        
         let parameters: [String: Any] = [
             "phone_number": phoneOrToken,
             "phone_code_hash": phoneCodeHash,
             "code": code
         ]
         
-        performRequest(url: url, parameters: parameters, method: .post) { _ in
-            print("Signed in successfully.")
+        botAPI.sendRequest(method: "signIn", parameters: parameters) { result in
+            switch result {
+            case .success(_):
+                print("Signed in successfully.")
+            case .failure(let error):
+                print("Error: \(error)")
+            }
         }
     }
     
     public func sendMessage(to chatId: Int, message: String) {
-        let endpoint = "/bot\(phoneOrToken)/sendMessage"
-        guard let url = URL(string: "https://api.telegram.org" + endpoint) else {
-            print("Invalid URL")
-            return
-        }
-        
         let parameters: [String: Any] = [
             "chat_id": chatId,
             "text": message
         ]
         
-        performRequest(url: url, parameters: parameters, method: .post) { _ in
-            print("Message sent successfully.")
-        }
-    }
-    
-    private func performRequest(url: URL, parameters: [String: Any], method: HTTPMethod, completion: @escaping (Data?) -> Void) {
-        var request = URLRequest(url: url)
-        request.httpMethod = method.rawValue
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: parameters, options: [])
-        } catch {
-            print("Error serializing JSON: \(error.localizedDescription)")
-            return
-        }
-        
-        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                print("Error: \(error.localizedDescription)")
-                completion(nil)
-                return
+        botAPI.sendRequest(method: "sendMessage", parameters: parameters) { result in
+            switch result {
+            case .success(_):
+                print("Message sent successfully.")
+            case .failure(let error):
+                print("Error: \(error)")
             }
-            completion(data)
         }
-        task.resume()
     }
-}
-
-enum HTTPMethod: String {
-    case get = "GET"
-    case post = "POST"
 }
