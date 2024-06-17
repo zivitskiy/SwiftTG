@@ -26,7 +26,7 @@ class MockBotAPI: BotAPI {
     }
 }
 
-class SwiftTGTests: XCTestCase {    
+class SwiftTGTests: XCTestCase {
     var swiftTG: SwiftTG!
     var mockBotAPI: MockBotAPI!
     
