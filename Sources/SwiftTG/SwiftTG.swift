@@ -1,3 +1,14 @@
+// SwiftTG for swift
+//
+// open-source telegram client library
+//
+//
+//
+// inspired by Telethon
+//
+// created by zivitskiy. 16.06.2024, 12:59 UTC+2
+//
+
 import Foundation
 
 public protocol BotAPI {
@@ -192,7 +203,7 @@ public class SwiftTG {
         return messageId
     }
     
-    public func GetEntity(Id: Int) {
+    public func GetEntity(Id: Int, completion: @escaping (ChatEntity?) -> Void) {
         let parameters: [String: Any] = ["chat_id": Id]
         
         botAPI.sendRequest(method: "getChat", parameters: parameters) { result in
@@ -200,33 +211,88 @@ public class SwiftTG {
             case .success(let data):
                 if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                    let chatEntity = ChatEntity(json: json) {
-                    self.presentChatEntity(chatEntity)
+                    completion(chatEntity)
                 } else {
                     print("Failed to parse chat entity data")
+                    completion(nil)
                 }
             case .failure(let error):
                 print("Error: \(error)")
+                completion(nil)
             }
         }
     }
-    
-    private func presentChatEntity(_ entity: ChatEntity) {
-        switch entity {
-        case .user(let id, let username, let firstName, let lastName):
-            print("User ID: \(id)")
-            print("Username: \(username ?? "N/A")")
-            print("First Name: \(firstName ?? "N/A")")
-            print("Last Name: \(lastName ?? "N/A")")
-        case .group(let id, let title):
-            print("Group ID: \(id)")
-            print("Title: \(title)")
-        case .channel(let id, let title, let username):
-            print("Channel ID: \(id)")
-            print("Title: \(title)")
-            print("Username: \(username ?? "N/A")")
-        case .unknown:
-            print("Unknown chat entity")
+    func ChangeAvatar(photoPath: String, token: String) {
+        let url = URL(string: "https://api.telegram.org/bot\(token)/setUserProfilePhoto")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+        let photoData = try! Data(contentsOf: URL(fileURLWithPath: photoPath))
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"photo\"; filename=\"profile.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(photoData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                print("Error: \(error!)")
+                return
+            }
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                print("Profile photo updated successfully")
+            } else {
+                print("Failed to update profile photo")
+            }
         }
+        task.resume()
+    }
+    
+    func ChangeUsername(newUsername: String, token: String) {
+        let url = URL(string: "https://api.telegram.org/bot\(token)/updateUsername")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let parameters: [String: Any] = [
+            "username": newUsername
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: parameters, options: [])
+
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                print("Error: \(error!)")
+                return
+            }
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                print("Username updated successfully")
+            } else {
+                print("Failed to update username")
+            }
+        }
+        task.resume()
+    }
+    
+    func Terminate(token: String) {
+        let url = URL(string: "https://api.telegram.org/bot\(token)/terminateAllSessions")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                print("Error: \(error!)")
+                return
+            }
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                print("All sessions terminated successfully")
+            } else {
+                print("Failed to terminate sessions")
+            }
+        }
+        task.resume()
     }
 }
-

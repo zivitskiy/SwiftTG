@@ -53,12 +53,8 @@ class SwiftTGTests: XCTestCase {
         swiftTG.RegisterApp()
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            if let phoneCodeHash = self.swiftTG.phoneCodeHash {
-                XCTAssertEqual(phoneCodeHash, "expected_phone_code_hash_here")
-                expectation.fulfill()
-            } else {
-                XCTFail("Registration failed or phoneCodeHash was not set")
-            }
+            XCTAssertEqual(self.swiftTG.phoneCodeHash, "expected_phone_code_hash_here")
+            expectation.fulfill()
         }
         
         waitForExpectations(timeout: 10, handler: nil)
@@ -70,7 +66,7 @@ class SwiftTGTests: XCTestCase {
         let expectation = self.expectation(description: "Code entered")
         let code = "12345"
         
-        let mockResponse: [String: Any] = [:] // Mock empty response for signIn
+        let mockResponse: [String: Any] = [:]
         mockBotAPI.setMockResponse(for: "signIn", response: mockResponse)
         
         swiftTG.ConfirmCode(code: code, phoneCodeHash: swiftTG.phoneCodeHash!)
@@ -85,7 +81,7 @@ class SwiftTGTests: XCTestCase {
     func testSendMessage() {
         let expectation = self.expectation(description: "Message sent")
         
-        let mockResponse: [String: Any] = [:] // Mock empty response for sendMessage
+        let mockResponse: [String: Any] = [:]
         mockBotAPI.setMockResponse(for: "sendMessage", response: mockResponse)
         
         swiftTG.SendMessage(to: 123456789, message: "Hello from SwiftTG!")
@@ -100,7 +96,7 @@ class SwiftTGTests: XCTestCase {
     func testForwardMessages() {
         let expectation = self.expectation(description: "Message forwarded")
         
-        let mockResponse: [String: Any] = [:] // Mock empty response for forwardMessage
+        let mockResponse: [String: Any] = [:]
         mockBotAPI.setMockResponse(for: "forwardMessage", response: mockResponse)
         
         swiftTG.ForwardMessages(IntoChat: 987654321, FromChat: 123456789, MessageLink: "https://t.me/123456789/987654321")
@@ -124,14 +120,21 @@ class SwiftTGTests: XCTestCase {
         ]
         mockBotAPI.setMockResponse(for: "getChat", response: mockResponse)
         
-        swiftTG.GetEntity(Id: 12345)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        swiftTG.GetEntity(Id: 12345) { chatEntity in
+            if case let .user(id, username, firstName, lastName) = chatEntity {
+                XCTAssertEqual(id, 12345)
+                XCTAssertEqual(username, "testuser")
+                XCTAssertEqual(firstName, "Test")
+                XCTAssertEqual(lastName, "User")
+            } else {
+                XCTFail("Expected user entity")
+            }
             expectation.fulfill()
         }
         
         waitForExpectations(timeout: 10, handler: nil)
     }
+
     
     func testGetEntityGroup() {
         let expectation = self.expectation(description: "Got group entity")
@@ -143,15 +146,19 @@ class SwiftTGTests: XCTestCase {
         ]
         mockBotAPI.setMockResponse(for: "getChat", response: mockResponse)
         
-        swiftTG.GetEntity(Id: 12345)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        swiftTG.GetEntity(Id: 12345) { chatEntity in
+            if case let .group(id, title) = chatEntity {
+                XCTAssertEqual(id, 12345)
+                XCTAssertEqual(title, "Test Group")
+            } else {
+                XCTFail("Expected group entity")
+            }
             expectation.fulfill()
         }
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-    
+
     func testGetEntityChannel() {
         let expectation = self.expectation(description: "Got channel entity")
         
@@ -163,7 +170,66 @@ class SwiftTGTests: XCTestCase {
         ]
         mockBotAPI.setMockResponse(for: "getChat", response: mockResponse)
         
-        swiftTG.GetEntity(Id: 12345)
+        swiftTG.GetEntity(Id: 12345) { chatEntity in
+            if case let .channel(id, title, username) = chatEntity {
+                XCTAssertEqual(id, 12345)
+                XCTAssertEqual(title, "Test Channel")
+                XCTAssertEqual(username, "testchannel")
+            } else {
+                XCTFail("Expected channel entity")
+            }
+            expectation.fulfill()
+        }
+        
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+
+    
+    func testChangeAvatar() {
+        let expectation = self.expectation(description: "Avatar changed")
+        
+        let mockResponse: [String: Any] = [:]
+        mockBotAPI.setMockResponse(for: "setUserProfilePhoto", response: mockResponse)
+        
+        let photoPath = "/Users/admin/Home/Pictures/askdjasdasjdkasd.jpg"
+        let token = "6725849873:AAH9sP6ZSNgX4MuveLcbk1kgHfaxwgvgVY0"
+        
+        swiftTG.ChangeAvatar(photoPath: photoPath, token: token)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            expectation.fulfill()
+        }
+        
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+    
+    func testChangeUsername() {
+        let expectation = self.expectation(description: "Username changed")
+        
+        let mockResponse: [String: Any] = [:]
+        mockBotAPI.setMockResponse(for: "updateUsername", response: mockResponse)
+        
+        let newUsername = "new_username"
+        let token = "your_bot_token_or_phone_number"
+        
+        swiftTG.ChangeUsername(newUsername: newUsername, token: token)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            expectation.fulfill()
+        }
+        
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+    
+    func testTerminate() {
+        let expectation = self.expectation(description: "Sessions terminated")
+        
+        let mockResponse: [String: Any] = [:]
+        mockBotAPI.setMockResponse(for: "terminateAllSessions", response: mockResponse)
+        
+        let token = "your_bot_token_or_phone_number"
+        
+        swiftTG.Terminate(token: token)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             expectation.fulfill()
