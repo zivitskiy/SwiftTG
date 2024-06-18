@@ -237,4 +237,22 @@ class SwiftTGTests: XCTestCase {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
+    func testSendFile() {
+        let expectation = self.expectation(description: "File sent")
+        
+        let mockResponse: [String: Any] = [:] 
+        mockBotAPI.setMockResponse(for: "sendDocument", response: mockResponse)
+  
+        let fileUrl = URL(fileURLWithPath: "/path/to/your/file.txt")
+
+        swiftTG.SendFile(to: 123456789, File: fileUrl, caption: "Test file")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            expectation.fulfill()
+        }
+        
+ 
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+
 }

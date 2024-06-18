@@ -295,4 +295,48 @@ public class SwiftTG {
         }
         task.resume()
     }
+    public func SendFile(to chatId: Int, File: URL, caption: String?) {
+        let parameters: [String: Any] = [
+            "chat_id": chatId,
+            "caption": caption ?? ""
+        ]
+        
+        let url = URL(string: "https://api.telegram.org/bot\(phoneOrToken)/sendDocument")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"document\"; filename=\"\(File.lastPathComponent)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: application/octet-stream\r\n\r\n".data(using: .utf8)!)
+        
+        do {
+            let fileData = try Data(contentsOf: File)
+            body.append(fileData)
+        } catch {
+            print("Error reading file data: \(error)")
+            return
+        }
+        
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, error == nil else {
+                print("Error: \(error!)")
+                return
+            }
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                print("File sent successfully")
+            } else {
+                print("Failed to send file")
+            }
+        }
+        task.resume()
+    }
+    
 }
