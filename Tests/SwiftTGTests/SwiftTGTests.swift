@@ -134,7 +134,6 @@ class SwiftTGTests: XCTestCase {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-
     
     func testGetEntityGroup() {
         let expectation = self.expectation(description: "Got group entity")
@@ -158,7 +157,7 @@ class SwiftTGTests: XCTestCase {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-
+    
     func testGetEntityChannel() {
         let expectation = self.expectation(description: "Got channel entity")
         
@@ -183,7 +182,6 @@ class SwiftTGTests: XCTestCase {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-
     
     func testChangeAvatar() {
         let expectation = self.expectation(description: "Avatar changed")
@@ -237,22 +235,81 @@ class SwiftTGTests: XCTestCase {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
+    
     func testSendFile() {
         let expectation = self.expectation(description: "File sent")
         
-        let mockResponse: [String: Any] = [:] 
+        let mockResponse: [String: Any] = [:]
         mockBotAPI.setMockResponse(for: "sendDocument", response: mockResponse)
-  
-        let fileUrl = URL(fileURLWithPath: "/path/to/your/file.txt")
-
+        
+        let fileUrl = URL(fileURLWithPath: "")
+        
         swiftTG.SendFile(to: 123456789, File: fileUrl, caption: "Test file")
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             expectation.fulfill()
         }
         
- 
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+    
+    func testStartPolling() {
+        let expectation = self.expectation(description: "Polling started")
+        var isExpectationFulfilled = false
+
+        let mockResponse: [String: Any] = [
+            "result": [
+                [
+                    "update_id": 1001,
+                    "message": [
+                        "message_id": 1,
+                        "from": ["id": 123456789, "is_bot": false, "first_name": "Test", "username": "testuser"],
+                        "chat": ["id": 123456789, "first_name": "Test", "username": "testuser", "type": "private"],
+                        "date": 1609459200,
+                        "text": "/start"
+                    ]
+                ]
+            ]
+        ]
+        
+        mockBotAPI.setMockResponse(for: "getUpdates", response: mockResponse)
+        
+        let startEvent = NewMessageEvent(pattern: "^/start$") { message in
+            if let chat = message["chat"] as? [String: Any],
+               let chatId = chat["id"] as? Int {
+                XCTAssertEqual(chatId, 123456789)
+                if !isExpectationFulfilled {
+                    expectation.fulfill()
+                    isExpectationFulfilled = true
+                }
+            }
+        }
+        
+        swiftTG.registerEventHandler(startEvent)
+        swiftTG.startPolling()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            if !isExpectationFulfilled {
+                expectation.fulfill()
+                isExpectationFulfilled = true
+            }
+        }
+        
         waitForExpectations(timeout: 10, handler: nil)
     }
 
+    func testForwardMessages2() {
+        let expectation = self.expectation(description: "Message forwarded")
+
+        let mockResponse: [String: Any] = [:]
+        mockBotAPI.setMockResponse(for: "forwardMessage", response: mockResponse)
+
+        swiftTG.ForwardMessages(IntoChat: 987654321, FromChat: 123456789, MessageLink: "https://t.me/123456789/987654321")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 10, handler: nil)
+    }
 }

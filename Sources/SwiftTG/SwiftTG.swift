@@ -14,6 +14,32 @@ import Foundation
 public protocol BotAPI {
     func sendRequest(method: String, parameters: [String: Any], completion: @escaping (Result<Data, Error>) -> Void)
 }
+public protocol Event {
+    func handleUpdate(_ update: [String: Any])
+}
+
+public class NewMessageEvent: Event {
+    private let pattern: String
+    private let handler: ([String: Any]) -> Void
+    
+    public init(pattern: String, handler: @escaping ([String: Any]) -> Void) {
+        self.pattern = pattern
+        self.handler = handler
+    }
+    
+    public func handleUpdate(_ update: [String: Any]) {
+        guard let message = update["message"] as? [String: Any],
+              let text = message["text"] as? String,
+              text.matches(pattern: pattern) else { return }
+        handler(message)
+    }
+}
+
+extension String {
+    func matches(pattern: String) -> Bool {
+        return self.range(of: pattern, options: .regularExpression) != nil
+    }
+}
 
 public class NetworkBotAPI: BotAPI {
     let token: String
@@ -90,15 +116,18 @@ public class SwiftTG {
     private let apiId: Int
     private let apiHash: String
     private let phoneOrToken: String
-    public var phoneCodeHash: String?
+    public var phoneCodeHash : String?
     private let botAPI: BotAPI
-    
+    private var eventHandlers: [Event] = []
+    private var isPolling = false
+
     public init(apiId: Int, apiHash: String, phoneOrToken: String, botAPI: BotAPI? = nil) {
         self.apiId = apiId
         self.apiHash = apiHash
         self.phoneOrToken = phoneOrToken
         self.botAPI = botAPI ?? NetworkBotAPI(token: phoneOrToken)
     }
+
     
     public func RegisterApp() {
         let parameters: [String: Any] = [
@@ -339,4 +368,38 @@ public class SwiftTG {
         task.resume()
     }
     
+    public func registerEventHandler(_ eventHandler: Event) {
+        eventHandlers.append(eventHandler)
+    }
+
+    public func startPolling() {
+        guard !isPolling else { return }
+        isPolling = true
+        pollUpdates()
+    }
+
+    private func pollUpdates(offset: Int? = nil) {
+        var parameters: [String: Any] = [:]
+        if let offset = offset {
+            parameters["offset"] = offset
+        }
+        botAPI.sendRequest(method: "getUpdates", parameters: parameters) { [weak self] result in
+            switch result {
+            case .success(let data):
+                if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let updates = json["result"] as? [[String: Any]] {
+                    updates.forEach { update in
+                        self?.eventHandlers.forEach { handler in
+                            handler.handleUpdate(update)
+                        }
+                    }
+                    let newOffset = (updates.last?["update_id"] as? Int).map { $0 + 1 }
+                    self?.pollUpdates(offset: newOffset)
+                }
+            case .failure(let error):
+                print("Error: \(error)")
+                self?.isPolling = false
+            }
+        }
+    }
 }
