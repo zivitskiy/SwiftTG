@@ -402,4 +402,40 @@ public class SwiftTG {
             }
         }
     }
+    public func GetChatHistory(chatId: Int, limit: Int = 100, completion: @escaping ([String: Any]?) -> Void) {
+        var messages: [[String: Any]] = []
+        var offsetId = 0
+
+        func fetchBatch() {
+            let parameters: [String: Any] = [
+                "chat_id": chatId,
+                "limit": limit,
+                "offset_id": offsetId
+            ]
+
+            botAPI.sendRequest(method: "getChatHistory", parameters: parameters) { result in
+                switch result {
+                case .success(let data):
+                    if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                       let newMessages = json["messages"] as? [[String: Any]] {
+                        messages.append(contentsOf: newMessages)
+                        
+                        if newMessages.count < limit {
+                            completion(["messages": messages])
+                        } else {
+                            offsetId = (newMessages.last?["message_id"] as? Int) ?? 0
+                            fetchBatch()
+                        }
+                    } else {
+                        completion(nil)
+                    }
+                case .failure(let error):
+                    print("Error: \(error)")
+                    completion(nil)
+                }
+            }
+        }
+
+        fetchBatch()
+    }
 }

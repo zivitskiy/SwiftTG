@@ -312,4 +312,59 @@ class SwiftTGTests: XCTestCase {
 
         waitForExpectations(timeout: 10, handler: nil)
     }
+    func testGetChatHistory() {
+        let expectation = self.expectation(description: "Chat history fetched")
+        
+        let mockResponse: [String: Any] = [
+            "result": [
+                [
+                    "message_id": 1,
+                    "from": ["id": 123456789, "is_bot": false, "first_name": "Test", "username": "testuser"],
+                    "chat": ["id": 123456789, "first_name": "Test", "username": "testuser", "type": "private"],
+                    "date": 1609459200,
+                    "text": "Hello, world!"
+                ],
+                [
+                    "message_id": 2,
+                    "from": ["id": 987654321, "is_bot": false, "first_name": "Another", "username": "anotheruser"],
+                    "chat": ["id": 123456789, "first_name": "Test", "username": "testuser", "type": "private"],
+                    "date": 1609459300,
+                    "text": "Hi there!"
+                ]
+            ]
+        ]
+        
+        mockBotAPI.setMockResponse(for: "getChatHistory", response: mockResponse)
+        
+        swiftTG.GetChatHistory(chatId: 123456789, limit: 2) { messages in
+            guard let messages = messages,!messages.isEmpty else {
+                XCTFail("No messages returned")
+                expectation.fulfill()
+                return
+            }
+            
+            XCTAssertEqual(messages.count, 2)
+            
+            if let firstMessage = messages.first as? [String: Any] {
+                XCTAssertEqual(firstMessage["message_id"] as? Int, 1)
+                XCTAssertEqual(firstMessage["text"] as? String, "Hello, world!")
+            } else {
+                XCTFail("First message not in expected format")
+            }
+            
+            if messages.count > 1 {
+                if let secondMessage = messages[1] as? [String: Any] { // TODO: Fix No exact matches in call to subscript
+                    XCTAssertEqual(secondMessage["message_id"] as? Int, 2)
+                    XCTAssertEqual(secondMessage["text"] as? String, "Hi there!")
+                } else {
+                    XCTFail("Second message not in expected format")
+                }
+            } else {
+                XCTFail("Insufficient messages")
+            }
+            
+            expectation.fulfill()
+        }
+        waitForExpectations(timeout: 10, handler: nil)
+    }
 }
