@@ -59,7 +59,7 @@ class SwiftTGTests: XCTestCase {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-
+    
     func testEnterCode() {
         swiftTG.phoneCodeHash = "test_phone_code_hash"
         
@@ -201,7 +201,7 @@ class SwiftTGTests: XCTestCase {
         waitForExpectations(timeout: 10, handler: nil)
     }
     
-    func testChangeUsername() {
+    func testChangeUsernameSuccessfully() {
         let expectation = self.expectation(description: "Username changed")
         
         let mockResponse: [String: Any] = [:]
@@ -219,7 +219,7 @@ class SwiftTGTests: XCTestCase {
         waitForExpectations(timeout: 10, handler: nil)
     }
     
-    func testTerminate() {
+    func testTerminateSessions() {
         let expectation = self.expectation(description: "Sessions terminated")
         
         let mockResponse: [String: Any] = [:]
@@ -236,13 +236,13 @@ class SwiftTGTests: XCTestCase {
         waitForExpectations(timeout: 10, handler: nil)
     }
     
-    func testSendFile() {
+    func testSendFileSuccessfully() {
         let expectation = self.expectation(description: "File sent")
         
         let mockResponse: [String: Any] = [:]
         mockBotAPI.setMockResponse(for: "sendDocument", response: mockResponse)
         
-        let fileUrl = URL(fileURLWithPath: "")
+        let fileUrl = URL(fileURLWithPath: "/path/to/file")
         
         swiftTG.SendFile(to: 123456789, File: fileUrl, caption: "Test file")
         
@@ -253,10 +253,10 @@ class SwiftTGTests: XCTestCase {
         waitForExpectations(timeout: 10, handler: nil)
     }
     
-    func testStartPolling() {
+    func testStartPollingSuccessfully() {
         let expectation = self.expectation(description: "Polling started")
         var isExpectationFulfilled = false
-
+        
         let mockResponse: [String: Any] = [
             "result": [
                 [
@@ -290,6 +290,7 @@ class SwiftTGTests: XCTestCase {
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
             if !isExpectationFulfilled {
+                XCTFail("Polling did not receive expected update")
                 expectation.fulfill()
                 isExpectationFulfilled = true
             }
@@ -297,21 +298,7 @@ class SwiftTGTests: XCTestCase {
         
         waitForExpectations(timeout: 10, handler: nil)
     }
-
-    func testForwardMessages2() {
-        let expectation = self.expectation(description: "Message forwarded")
-
-        let mockResponse: [String: Any] = [:]
-        mockBotAPI.setMockResponse(for: "forwardMessage", response: mockResponse)
-
-        swiftTG.ForwardMessages(IntoChat: 987654321, FromChat: 123456789, MessageLink: "https://t.me/123456789/987654321")
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            expectation.fulfill()
-        }
-
-        waitForExpectations(timeout: 10, handler: nil)
-    }
+    
     func testGetChatHistory() {
         let expectation = self.expectation(description: "Chat history fetched")
         
@@ -337,15 +324,15 @@ class SwiftTGTests: XCTestCase {
         mockBotAPI.setMockResponse(for: "getChatHistory", response: mockResponse)
         
         swiftTG.GetChatHistory(chatId: 123456789, limit: 2) { messages in
-            guard let messages = messages,!messages.isEmpty else {
-                XCTFail("No messages returned")
+            guard let messages = messages as? [[String: Any]], !messages.isEmpty else {
+                XCTFail("No messages returned") // TODO: fix testGetChatHistory(): failed - No messages returned
                 expectation.fulfill()
                 return
             }
             
             XCTAssertEqual(messages.count, 2)
             
-            if let firstMessage = messages.first as? [String: Any] {
+            if let firstMessage = messages.first {
                 XCTAssertEqual(firstMessage["message_id"] as? Int, 1)
                 XCTAssertEqual(firstMessage["text"] as? String, "Hello, world!")
             } else {
@@ -353,7 +340,7 @@ class SwiftTGTests: XCTestCase {
             }
             
             if messages.count > 1 {
-                if let secondMessage = messages[1] as? [String: Any] { // TODO: Fix No exact matches in call to subscript
+                if let secondMessage = messages[1] as? [String: Any] {
                     XCTAssertEqual(secondMessage["message_id"] as? Int, 2)
                     XCTAssertEqual(secondMessage["text"] as? String, "Hi there!")
                 } else {
@@ -365,6 +352,25 @@ class SwiftTGTests: XCTestCase {
             
             expectation.fulfill()
         }
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+    func testDownloadFile() {
+        let expectation = self.expectation(description: "File downloaded")
+        
+        let fileId = "file_id_example"
+        let mockResponse: [String: Any] = [
+            "result": [
+                "file_path": "/path/to/example.pdf"
+            ]
+        ]
+        mockBotAPI.setMockResponse(for: "getFile", response: mockResponse)
+        
+        swiftTG.DownloadFile(fileId: fileId) { downloadURL in
+            XCTAssertNotNil(downloadURL)
+            XCTAssertTrue(downloadURL?.absoluteString.hasPrefix("https://api.telegram.org/file/bot") ?? false)
+            expectation.fulfill()
+        }
+        
         waitForExpectations(timeout: 10, handler: nil)
     }
 }

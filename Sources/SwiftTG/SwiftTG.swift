@@ -438,4 +438,27 @@ public class SwiftTG {
 
         fetchBatch()
     }
+    
+    public func DownloadFile(fileId: String, completion: @escaping (URL?) -> Void) {
+        let parameters: [String: Any] = [
+            "file_id": fileId
+        ]
+        
+        botAPI.sendRequest(method: "getFile", parameters: parameters) { result in
+            switch result {
+            case .success(let data):
+                if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let result = json["result"] as? [String: Any],
+                   let filePath = result["file_path"] as? String {
+                    let downloadURL = URL(string: "https://api.telegram.org/file/bot\(self.phoneOrToken)/\(filePath)")
+                    completion(downloadURL)
+                } else {
+                    completion(nil)
+                }
+            case .failure(let error):
+                print("Error: \(error)")
+                completion(nil)
+            }
+        }
+    }
 }
