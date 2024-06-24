@@ -461,4 +461,43 @@ public class SwiftTG {
             }
         }
     }
+    
+    public func BanUser(chatId: Int, userId: Int, untilDate: Int? = nil, revokeMessages: Bool = false, completion: @escaping (Result<Data, Error>) -> Void) {
+        var parameters: [String: Any] = [
+            "chat_id": chatId,
+            "user_id": userId,
+            "revoke_messages": revokeMessages
+        ]
+        
+        if let untilDate = untilDate {
+            parameters["until_date"] = untilDate
+        }
+        
+        botAPI.sendRequest(method: "kickChatMember", parameters: parameters, completion: completion)
+    }
+    public func UnbanUser(chatId: Int, userId: Int, onlyIfBanned: Bool = false, completion: @escaping (Result<Data, Error>) -> Void) {
+        let parameters: [String: Any] = [
+            "chat_id": chatId,
+            "user_id": userId,
+            "only_if_banned": onlyIfBanned
+        ]
+        
+        botAPI.sendRequest(method: "unbanChatMember", parameters: parameters, completion: completion)
+    }
+    public func PromoteAdmin(chatId: Int, userId: Int, canChangeInfo: Bool = false, canPostMessages: Bool = false, canEditMessages: Bool = false, canDeleteMessages: Bool = false, canInviteUsers: Bool = false, canRestrictMembers: Bool = false, canPinMessages: Bool = false, canPromoteMembers: Bool = false, completion: @escaping (Result<Data, Error>) -> Void) {
+        let parameters: [String: Any] = [
+            "chat_id": chatId,
+            "user_id": userId,
+            "can_change_info": canChangeInfo,
+            "can_post_messages": canPostMessages,
+            "can_edit_messages": canEditMessages,
+            "can_delete_messages": canDeleteMessages,
+            "can_invite_users": canInviteUsers,
+            "can_restrict_members": canRestrictMembers,
+            "can_pin_messages": canPinMessages,
+            "can_promote_members": canPromoteMembers
+        ]
+        
+        botAPI.sendRequest(method: "promoteChatMember", parameters: parameters, completion: completion)
+    }
 }

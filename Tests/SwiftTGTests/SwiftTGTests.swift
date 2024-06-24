@@ -301,7 +301,7 @@ class SwiftTGTests: XCTestCase {
     
     func testGetChatHistory() {
         let expectation = self.expectation(description: "Chat history fetched")
-        
+
         let mockResponse: [String: Any] = [
             "result": [
                 [
@@ -320,25 +320,25 @@ class SwiftTGTests: XCTestCase {
                 ]
             ]
         ]
-        
+
         mockBotAPI.setMockResponse(for: "getChatHistory", response: mockResponse)
-        
+
         swiftTG.GetChatHistory(chatId: 123456789, limit: 2) { messages in
-            guard let messages = messages as? [[String: Any]], !messages.isEmpty else {
-                XCTFail("No messages returned") // TODO: fix testGetChatHistory(): failed - No messages returned
+            guard let messages = messages as? [[String: Any]],!messages.isEmpty else {
+                XCTFail("No messages returned") // TODO: testGetChatHistory(): failed - No messages returned
                 expectation.fulfill()
                 return
             }
-            
+
             XCTAssertEqual(messages.count, 2)
-            
+
             if let firstMessage = messages.first {
                 XCTAssertEqual(firstMessage["message_id"] as? Int, 1)
                 XCTAssertEqual(firstMessage["text"] as? String, "Hello, world!")
             } else {
                 XCTFail("First message not in expected format")
             }
-            
+
             if messages.count > 1 {
                 if let secondMessage = messages[1] as? [String: Any] {
                     XCTAssertEqual(secondMessage["message_id"] as? Int, 2)
@@ -349,28 +349,98 @@ class SwiftTGTests: XCTestCase {
             } else {
                 XCTFail("Insufficient messages")
             }
-            
+
             expectation.fulfill()
         }
         waitForExpectations(timeout: 10, handler: nil)
     }
+    
     func testDownloadFile() {
+        let fileId = "fileId_example"
         let expectation = self.expectation(description: "File downloaded")
         
-        let fileId = "file_id_example"
         let mockResponse: [String: Any] = [
+            "ok": true,
             "result": [
-                "file_path": "/path/to/example.pdf"
+                "file_path": "path/to/file.txt"
             ]
         ]
         mockBotAPI.setMockResponse(for: "getFile", response: mockResponse)
         
-        swiftTG.DownloadFile(fileId: fileId) { downloadURL in
-            XCTAssertNotNil(downloadURL)
-            XCTAssertTrue(downloadURL?.absoluteString.hasPrefix("https://api.telegram.org/file/bot") ?? false)
+        let downloadURL = URL(string: "https://api.telegram.org/file/botyour_bot_token_or_phone_number/path/to/file.txt")
+        
+        swiftTG.DownloadFile(fileId: fileId) { url in
+            XCTAssertEqual(url, downloadURL)
             expectation.fulfill()
         }
         
         waitForExpectations(timeout: 10, handler: nil)
     }
+    
+    func testBanUser() {
+        let chatId = 123456789
+        let userId = 987654321
+        let expectation = self.expectation(description: "User banned")
+        
+        let mockResponse: [String: Any] = [
+            "ok": true
+        ]
+        mockBotAPI.setMockResponse(for: "kickChatMember", response: mockResponse)
+        
+        swiftTG.BanUser(chatId: chatId, userId: userId) { result in
+            switch result {
+            case.success(_):
+                expectation.fulfill()
+            case.failure(let error):
+                XCTFail("Failed to ban user: \(error.localizedDescription)")
+            }
+        }
+        
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+    
+    func testUnbanUser() {
+        let chatId = 123456789
+        let userId = 987654321
+        let expectation = self.expectation(description: "User unbanned")
+        
+        let mockResponse: [String: Any] = [
+            "ok": true
+        ]
+        mockBotAPI.setMockResponse(for: "unbanChatMember", response: mockResponse)
+        
+        swiftTG.UnbanUser(chatId: chatId, userId: userId) { result in
+            switch result {
+            case.success(_):
+                expectation.fulfill()
+            case.failure(let error):
+                XCTFail("Failed to unban user: \(error.localizedDescription)")
+            }
+        }
+        
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+    
+    func testPromoteAdmin() {
+        let chatId = 123456789
+        let userId = 987654321
+        let expectation = self.expectation(description: "Admin promoted")
+        
+        let mockResponse: [String: Any] = [
+            "ok": true
+        ]
+        mockBotAPI.setMockResponse(for: "promoteChatMember", response: mockResponse)
+        
+        swiftTG.PromoteAdmin(chatId: chatId, userId: userId) { result in
+            switch result {
+            case.success(_):
+                expectation.fulfill()
+            case.failure(let error):
+                XCTFail("Failed to promote admin: \(error.localizedDescription)")
+            }
+        }
+        
+        waitForExpectations(timeout: 10, handler: nil)
+    }
+
 }
